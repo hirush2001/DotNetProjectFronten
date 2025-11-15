@@ -1,14 +1,13 @@
-// In: /src/pages/SalesOrderPage.js
-
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; // Import hooks
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FaCheck, FaPlus } from 'react-icons/fa';
+import { useReactToPrint } from 'react-to-print';
+import { FaCheck, FaPlus, FaPrint } from 'react-icons/fa';
 import toast, { Toaster } from 'react-hot-toast';
+import InvoiceToPrint from '../components/InvoiceToPrint';
 
 const API_BASE_URL = 'http://localhost:5011/api';
 
-// Define a blank row for adding new items
 const blankRow = {
   itemCode: '',
   description: '',
@@ -22,15 +21,13 @@ const blankRow = {
 };
 
 const SalesOrderPage = () => {
-  // --- STATE ---
-  const { id } = useParams(); // <-- THIS GETS THE ID FROM THE URL
-  const navigate = useNavigate(); // For redirecting
+  const { id } = useParams();
+  const navigate = useNavigate();
   
   const [clients, setClients] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // State for all form data
   const [headerData, setHeaderData] = useState({
     invoiceNo: '',
     invoiceDate: new Date().toISOString().split('T')[0],
@@ -38,7 +35,7 @@ const SalesOrderPage = () => {
   });
 
   const [customerData, setCustomerData] = useState({
-    customerId: '', // Used for the dropdown
+    customerId: '',
     customerName: '',
     address1: '',
     address2: '',
@@ -54,12 +51,26 @@ const SalesOrderPage = () => {
     totalIncl: 0,
   });
 
-  // --- DATA FETCHING (FOR NEW AND EDIT) ---
+  const componentToPrintRef = useRef(null);
+
+  const handlePrint = useReactToPrint({
+    content: () => componentToPrintRef.current,
+    documentTitle: headerData.invoiceNo || "invoice",
+    onAfterPrint: () => toast.success("Invoice printed successfully!")
+  });
+  
+
+  const orderDataForPrint = {
+    headerData,
+    customerData,
+    itemLines,
+    totals,
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // 1. Always fetch clients and items for dropdowns
         const [clientsRes, itemsRes] = await Promise.all([
           axios.get(`${API_BASE_URL}/clients`),
           axios.get(`${API_BASE_URL}/items`),
@@ -67,13 +78,11 @@ const SalesOrderPage = () => {
         setClients(clientsRes.data);
         setItems(itemsRes.data);
 
-        // 2. THIS IS THE "load added data" LOGIC
         if (id) {
           toast.loading('Loading existing order...');
           const orderRes = await axios.get(`${API_BASE_URL}/salesorder/${id}`);
           const order = orderRes.data;
 
-          // Fill all states with the loaded order data
           setHeaderData({
             invoiceNo: order.invoiceNo,
             invoiceDate: new Date(order.invoiceDate).toISOString().split('T')[0],
@@ -81,7 +90,7 @@ const SalesOrderPage = () => {
           });
           
           setCustomerData({
-            customerId: '', // We don't know the original client ID
+            customerId: '',
             customerName: order.customerName,
             address1: order.address1,
             address2: order.address2,
@@ -89,7 +98,6 @@ const SalesOrderPage = () => {
             postCode: order.postCode,
           });
 
-          // Re-calculate loaded items
           const loadedItems = order.orderItems.map(item => ({
             ...item,
             exclAmount: item.exclAmount,
@@ -109,9 +117,8 @@ const SalesOrderPage = () => {
       }
     };
     fetchData();
-  }, [id]); // <-- The 'id' here makes this effect re-run when the URL changes
+  }, [id]);
 
-  // --- CALCULATIONS ---
   useEffect(() => {
     let totalEx = 0, totalTax = 0, totalInc = 0;
     itemLines.forEach(line => {
@@ -123,7 +130,6 @@ const SalesOrderPage = () => {
   }, [itemLines]);
 
 
-  // --- EVENT HANDLERS ---
   const handleHeaderChange = (e) => {
     const { name, value } = e.target;
     setHeaderData(prev => ({ ...prev, [name]: value }));
@@ -177,7 +183,6 @@ const SalesOrderPage = () => {
     setItemLines([...itemLines, blankRow]);
   };
 
-  // THIS IS THE "save again" (edit) LOGIC
   const handleSaveOrder = async () => {
     const finalOrder = {
       ...headerData,
@@ -195,33 +200,30 @@ const SalesOrderPage = () => {
 
     try {
       if (id) {
-        // --- EDIT MODE (UPDATE) ---
-        // We will build this in the backend next
-        // const response = await axios.put(`${API_BASE_URL}/salesorder/${id}`, finalOrder);
-        // toast.success('Order Updated Successfully!');
-        
-        console.log("SENDING UPDATE:", finalOrder);
-        toast.error("Update function is not built in the backend yet.");
-
+        await axios.put(`${API_BASE_URL}/salesorder/${id}`, {
+          ...finalOrder,
+          id: id // ensure the Id is included in the payload
+        });
+        toast.success("Order Updated Successfully!");
+        navigate('/');
       } else {
-        // --- NEW MODE (CREATE) ---
-        const response = await axios.post(`${API_BASE_URL}/salesorder`, finalOrder);
+        await axios.post(`${API_BASE_URL}/salesorder`, finalOrder);
         toast.success('Order Saved Successfully!');
-        navigate('/'); // Go back to the home page
+        navigate('/');
       }
+      
     } catch (error) {
       console.error("Error saving order:", error);
       toast.error("Failed to save order.");
     }
+    
   };
 
-
-  // --- RENDER ---
   if (loading) {
     return <p className="text-center mt-10 text-gray-500">Loading data...</p>;
   }
 
-  return (
+  return ( 
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
       
@@ -229,18 +231,27 @@ const SalesOrderPage = () => {
         <h1 className="text-3xl font-bold text-gray-800">
           {id ? `Edit Sales Order (ID: ${id})` : 'New Sales Order'}
         </h1>
-        <button 
-          onClick={handleSaveOrder}
-          className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition duration-150"
-        >
-          <FaCheck className="mr-2" />
-          {id ? 'Update Order' : 'Save Order'}
-        </button>
+        <div className="flex gap-2">
+          {id && (
+            <button 
+              onClick={handlePrint}
+              className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg flex items-center transition duration-150"
+            >
+              <FaPrint className="mr-2" />
+              Print
+            </button>
+          )}
+          <button 
+            onClick={handleSaveOrder}
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition duration-150"
+          >
+            <FaCheck className="mr-2" />
+            {id ? 'Update Order' : 'Save Order'}
+          </button>
+        </div>
       </div>
 
-      {/* --- FORMS --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Customer Details */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="mb-4">
             <label className="block text-gray-700 font-bold mb-2">Customer Name</label>
@@ -277,7 +288,6 @@ const SalesOrderPage = () => {
           </div>
         </div>
 
-        {/* Invoice Details */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="mb-4">
             <label className="block text-gray-700 font-bold mb-2">Invoice No.</label>
@@ -303,7 +313,6 @@ const SalesOrderPage = () => {
         </div>
       </div>
 
-      {/* --- ITEM GRID --- */}
       <div className="bg-white rounded-lg shadow-md overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
@@ -365,7 +374,6 @@ const SalesOrderPage = () => {
         </table>
       </div>
 
-      {/* --- ADD ITEM BUTTON --- */}
       <div className="mt-4">
         <button 
           onClick={handleAddItemLine}
@@ -376,7 +384,6 @@ const SalesOrderPage = () => {
         </button>
       </div>
 
-      {/* --- TOTALS --- */}
       <div className="flex justify-end mt-6">
         <div className="w-full max-w-sm p-6 bg-white rounded-lg shadow-md">
           <div className="flex justify-between items-center mb-3">
@@ -393,6 +400,14 @@ const SalesOrderPage = () => {
           </div>
         </div>
       </div>
+
+      <div className="absolute -left-[9999px] top-0">
+  <InvoiceToPrint ref={componentToPrintRef} orderData={orderDataForPrint} />
+</div>
+
+
+
+
     </div>
   );
 };

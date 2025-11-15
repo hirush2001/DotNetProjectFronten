@@ -1,20 +1,19 @@
-// In: /src/pages/HomePage.js
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate for navigation
+import { useNavigate } from 'react-router-dom'; 
 import { FaPlus, FaSortDown } from 'react-icons/fa';
 import toast, { Toaster } from 'react-hot-toast';
 
-// Use your backend's URL
+
 const API_BASE_URL = 'http://localhost:5011/api';
 
 const HomePage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate(); 
 
-  // Fetch all sales orders when the page loads
+  
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -31,14 +30,14 @@ const HomePage = () => {
     fetchOrders();
   }, []);
 
-  // --- Navigation Handlers ---
+  
 
-  // 1. Navigate to the blank Sales Order page (Screen 1) [cite: 121]
+  
   const handleAddNew = () => {
     navigate('/salesorder');
   };
 
-  // 2. Navigate to an existing order to edit it [cite: 123]
+ 
   const handleRowClick = (id) => {
     navigate(`/salesorder/${id}`);
   };
@@ -51,7 +50,7 @@ const HomePage = () => {
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
 
-      {/* --- 1 & 2. HEADER AND "ADD NEW" BUTTON --- */}
+     
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Home</h1>
         <button
@@ -63,12 +62,12 @@ const HomePage = () => {
         </button>
       </div>
 
-      {/* --- 3. ORDERS GRID --- */}
+      
       <div className="bg-white rounded-lg shadow-md overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-100">
             <tr>
-              {/* I have defined 7 columns as requested  */}
+              
               <th className="p-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                 <FaSortDown className="inline mr-1" />Invoice No.
               </th>
@@ -96,7 +95,7 @@ const HomePage = () => {
             {orders.map((order) => (
               <tr
                 key={order.id}
-                onDoubleClick={() => handleRowClick(order.id)} // [cite: 123]
+                onDoubleClick={() => handleRowClick(order.id)} 
                 className="hover:bg-gray-50 cursor-pointer"
               >
                 <td className="p-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.invoiceNo}</td>
